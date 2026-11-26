@@ -13,7 +13,10 @@ import { resolverProveedor } from "./controles"
 import { referenciaCotizacion } from "./lectura"
 import { textoBreve } from "./texto"
 
-export type Trazabilidad = Record<string, { valor: string | number | null; fuente: string }>
+/** Fuentes admitidas por el PRD (HU-3), más el correo de entrada y el de aprobación. */
+export type Fuente = "solicitud" | "cotizacion" | "correo" | "aprobacion" | `maestro.${string}` | "derivado"
+
+export type Trazabilidad = Record<string, { valor: string | number | null; fuente: Fuente; detalle?: string }>
 
 export type OrdenConstruida = { orden: OrdenCompra; trazabilidad: Trazabilidad }
 
@@ -75,33 +78,31 @@ export function construirOrden(
     "referencia.solicitud_id": { valor: s.solicitud_id, fuente: "solicitud" },
     "referencia.correo_id": { valor: correo.id, fuente: "correo" },
     "referencia.cotizacion_ref": { valor: cotizacionRef, fuente: "cotizacion" },
-    sociedad: { valor: "1000", fuente: "derivado (constante del PRD 7.4)" },
-    organizacion_compras: { valor: "1000", fuente: "derivado (constante del PRD 7.4)" },
-    "proveedor.codigo_sap": { valor: p.codigo_sap, fuente: `maestro.proveedores (hallado por ${resuelto.via})` },
+    sociedad: { valor: "1000", fuente: "derivado", detalle: "constante del PRD 7.4" },
+    organizacion_compras: { valor: "1000", fuente: "derivado", detalle: "constante del PRD 7.4" },
+    "proveedor.codigo_sap": { valor: p.codigo_sap, fuente: "maestro.proveedores", detalle: `hallado por ${resuelto.via}` },
     "proveedor.nit": { valor: p.nit, fuente: "maestro.proveedores" },
     "proveedor.nombre": { valor: p.nombre, fuente: "maestro.proveedores" },
     moneda: { valor: s.moneda, fuente: "solicitud" },
-    condiciones_pago: {
-      valor: condiciones,
-      fuente: s.condiciones_pago ? "solicitud" : (validacion.derivados.condiciones_pago?.fuente ?? "derivado"),
-    },
-    "aprobador.email": { valor: aprobacion.de, fuente: "aprobacion" },
+    condiciones_pago: s.condiciones_pago
+      ? { valor: condiciones, fuente: "solicitud", detalle: "validado contra maestro.condiciones-pago" }
+      : { valor: condiciones, fuente: "maestro.proveedores", detalle: "condiciones_pago_default: la solicitud no las informa (RC7)" },
+    "aprobador.email": { valor: aprobacion.de, fuente: "aprobacion", detalle: "validado contra maestro.centros-costo" },
     "aprobador.fecha_aprobacion": { valor: aprobacion.fecha, fuente: "aprobacion" },
-    "aprobador.evidencia_sha256": { valor: evidenciaSha256, fuente: "derivado (sha256 de la evidencia de aprobación)" },
-    "posiciones[0].numero": { valor: 10, fuente: "derivado (numeración SAP de 10 en 10)" },
-    "posiciones[0].descripcion": {
-      valor: descripcion,
-      fuente: descripcion === s.descripcion ? "solicitud" : `derivado (solicitud.descripcion recortada a 40 caracteres; original: "${s.descripcion}")`,
-    },
+    "aprobador.evidencia_sha256": { valor: evidenciaSha256, fuente: "derivado", detalle: "sha256 de la evidencia de aprobación" },
+    "posiciones[0].numero": { valor: 10, fuente: "derivado", detalle: "numeración SAP de 10 en 10" },
+    "posiciones[0].descripcion":
+      descripcion === s.descripcion
+        ? { valor: descripcion, fuente: "solicitud" }
+        : { valor: descripcion, fuente: "derivado", detalle: `solicitud.descripcion recortada a 40 caracteres; original: "${s.descripcion}"` },
     "posiciones[0].cantidad": { valor: s.cantidad, fuente: "solicitud" },
-    "posiciones[0].unidad": { valor: unidad, fuente: "derivado (H si la descripción habla de horas; si no, UN)" },
+    "posiciones[0].unidad": { valor: unidad, fuente: "derivado", detalle: "H si la descripción habla de horas; si no, UN" },
     "posiciones[0].precio_unitario": { valor: s.valor_unitario, fuente: "solicitud" },
-    "posiciones[0].centro_costo": { valor: s.centro_costo, fuente: "solicitud (validado contra maestro.centros-costo)" },
-    "posiciones[0].subarea": { valor: s.subarea, fuente: "solicitud (validado contra maestro.centros-costo)" },
-    "posiciones[0].indicador_iva": {
-      valor: iva,
-      fuente: s.indicador_iva ? "solicitud" : (validacion.derivados.indicador_iva?.fuente ?? "derivado"),
-    },
+    "posiciones[0].centro_costo": { valor: s.centro_costo, fuente: "solicitud", detalle: "validado contra maestro.centros-costo" },
+    "posiciones[0].subarea": { valor: s.subarea, fuente: "solicitud", detalle: "validado contra maestro.centros-costo" },
+    "posiciones[0].indicador_iva": s.indicador_iva
+      ? { valor: iva, fuente: "solicitud", detalle: "validado contra maestro.indicadores-iva" }
+      : { valor: iva, fuente: "maestro.proveedores", detalle: "indicador_iva_default: la solicitud no lo informa (RC6, confirmado por la analista)" },
   }
   return { ok: true, valor: { orden: validada.data, trazabilidad } }
 }

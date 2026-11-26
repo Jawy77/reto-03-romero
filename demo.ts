@@ -31,6 +31,15 @@ const verificar = (condicion: boolean, mensaje: string) => {
 }
 const lista = (hallazgos: Hallazgo[]) => (hallazgos.length ? hallazgos.map((h) => `${h.regla} ${h.codigo}`).join(", ") : "ninguno")
 
+/** Simula a un modelo que "arregla" el precio para que cuadre con la cotización: debe rechazarse. */
+async function probarIntegridad(caso: string, orden: unknown): Promise<void> {
+  const original = orden as { posiciones: Array<{ precio_unitario: number }> }
+  const alterada = { ...original, posiciones: original.posiciones.map((p) => ({ ...p, precio_unitario: 265000 })) }
+  const rechazo = leer(await oc.crear.execute({ caso, payload: alterada, confirmado: true }, ctx))
+  console.log(`  payload alterado (precio 265.000 en vez de 250.000): ${rechazo.ok ? "ACEPTADO (mal)" : `rechazado (${rechazo.codigo})`}`)
+  verificar(!rechazo.ok && rechazo.codigo === "PAYLOAD_ALTERADO", "integridad: se aceptó un payload con el precio alterado")
+}
+
 async function procesar(caso: string): Promise<void> {
   const esperado = ESPERADO[caso]
   if (!esperado) return
@@ -70,6 +79,7 @@ async function procesar(caso: string): Promise<void> {
   if (esperado.confirma) {
     verificar(!creada.ok && creada.codigo === "REQUIERE_CONFIRMACION", `${caso}: debió pedir confirmación antes de crear`)
     console.log(`  sin confirmar:  ${creada.error}`)
+    if (caso === "sol-004") await probarIntegridad(caso, payload.data?.orden)
     console.log("  → confirmación explícita de la analista (confirmado = true)")
     creada = leer(await oc.crear.execute({ caso, payload: payload.data?.orden, confirmado: true }, ctx))
   }
@@ -87,15 +97,6 @@ const repetida = leer(await oc.crear.execute({ caso: "sol-001" }, ctx))
 console.log(`  número de OC:   ${repetida.data?.numero_oc} (idempotente: ${repetida.data?.idempotente})`)
 verificar(repetida.data?.numero_oc === "4500000001" && repetida.data?.idempotente === true, "idempotencia: sol-001 generó una segunda OC")
 
-console.log(`\n━━ Integridad: payload alterado por el modelo ${"━".repeat(26)}`)
-const base = leer(await oc.construir_payload.execute({ caso: "sol-004" }, ctx))
-const orden = base.data?.orden as { posiciones: Array<{ precio_unitario: number }> }
-const alterada = { ...orden, posiciones: orden.posiciones.map((p) => ({ ...p, precio_unitario: 265000 })) }
-rmSync(join(ctx.directory, "out", "sap"), { recursive: true, force: true }) // fuerza un intento real de creación
-const rechazo = leer(await oc.crear.execute({ caso: "sol-004", payload: alterada, confirmado: true }, ctx))
-console.log(`  resultado:      ${rechazo.ok ? "ACEPTADO (mal)" : `rechazado (${rechazo.codigo})`}`)
-verificar(!rechazo.ok && rechazo.codigo === "PAYLOAD_ALTERADO", "integridad: se aceptó un payload con el precio alterado")
-
 console.log(`\n━━ Errores: entradas inválidas ${"━".repeat(41)}`)
 for (const caso of ["sol-999", "../../maestros"]) {
   const r = leer(await oc.leer_paquete.execute({ caso }, ctx))
@@ -103,9 +104,18 @@ for (const caso of ["sol-999", "../../maestros"]) {
   verificar(!r.ok, `errores: "${caso}" debió devolver ok=false`)
 }
 
+const ordenes = join(ctx.directory, "out", "sap", "ordenes.jsonl")
+console.log(`\n━━ SAP simulado (out/sap/ordenes.jsonl) ${"━".repeat(33)}`)
+const creadas = existsSync(ordenes) ? readFileSync(ordenes, "utf8").trim().split("\n") : []
+for (const linea of creadas) {
+  const r = JSON.parse(linea) as { numero_oc: string; orden: { referencia: { solicitud_id: string }; proveedor: { nombre: string } } }
+  console.log(`  ${r.numero_oc}  ${r.orden.referencia.solicitud_id}  ${r.orden.proveedor.nombre}`)
+}
+verificar(creadas.length === 4, `SAP simulado: ${creadas.length} órdenes, se esperaban 4`)
+
 const control = join(ctx.directory, "out", "control.csv")
 console.log(`\n━━ Log de control (out/control.csv) ${"━".repeat(36)}`)
 if (existsSync(control)) console.log(readFileSync(control, "utf8").trimEnd().split("\n").map((l) => `  ${l}`).join("\n"))
 
-console.log(fallas.length ? `\n✗ ${fallas.length} verificación(es) fallaron:\n${fallas.map((f) => `  - ${f}`).join("\n")}` : "\n✓ Los 6 casos, la idempotencia y la integridad dieron el resultado esperado.")
+console.log(fallas.length ? `\n✗ ${fallas.length} verificación(es) fallaron:\n${fallas.map((f) => `  - ${f}`).join("\n")}` : "\n✓ Los 6 casos, la idempotencia y la integridad del payload dieron el resultado esperado.")
 process.exit(fallas.length ? 1 : 0)

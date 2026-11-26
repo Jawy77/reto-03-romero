@@ -184,6 +184,7 @@ export const crear = definir({
       const evidencia = construirEvidencia(ctx.directory, args.caso)
       if (!evidencia.ok) return fallo(evidencia.error)
       const ruta_evidencia = escribir(ctx, args.caso, "aprobacion.txt", archivoEvidencia(evidencia.valor))
+      const ruta_evidencia_pdf = escribir(ctx, args.caso, "aprobacion.pdf", await pdfEvidencia(evidencia.valor))
       const construida = construirOrden(paquete, validacion, maestros, evidencia.valor.sha256)
       if (!construida.ok) return fallo(construida.error)
 
@@ -191,6 +192,7 @@ export const crear = definir({
       if (args.payload !== undefined) {
         const suministrado = OrdenCompraSchema.safeParse(args.payload)
         if (!suministrado.success || !mismaOrden(suministrado.data, construida.valor.orden)) {
+          registrarControl(ctx.directory, { ...base, resultado: "bloqueada", numero_oc: "", bloqueos: ["PAYLOAD_ALTERADO"] })
           return fallo("El payload recibido no coincide con el generado por oc_construir_payload. Vuelve a llamar oc_crear sin el argumento payload.", {
             codigo: "PAYLOAD_ALTERADO",
           })
@@ -211,7 +213,7 @@ export const crear = definir({
       escribir(ctx, args.caso, "payload.json", JSON.stringify(orden, null, 2))
       const creada = await sap.crearOrden(orden)
       registrarControl(ctx.directory, { ...base, resultado: "creada", numero_oc: creada.numero_oc })
-      return exito({ numero_oc: creada.numero_oc, fecha: creada.fecha, idempotente: false, ruta_evidencia, retroactiva: validacion.retroactiva })
+      return exito({ numero_oc: creada.numero_oc, fecha: creada.fecha, idempotente: false, ruta_evidencia, ruta_evidencia_pdf, retroactiva: validacion.retroactiva })
     } catch (e) {
       registrarControl(ctx.directory, { solicitud_id: solicitudId, resultado: "error", numero_oc: "", retroactiva: false, bloqueos: [], confirmaciones: [] })
       return fallo(`No se pudo crear la orden: ${mensajeError(e)}`)
