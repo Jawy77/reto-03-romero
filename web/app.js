@@ -210,4 +210,20 @@ fetch("/api/casos")
   })
   .catch(() => {})
 
-bienvenida()
+// Al recargar la página se recupera la conversación de la sesión, si el servidor aún la tiene.
+async function restaurar() {
+  bienvenida()
+  try {
+    const r = await fetch(`/api/sessions/${sessionId}`)
+    if (!r.ok) return
+    const { historial } = await r.json()
+    historial.forEach((entrada, i) => {
+      if (entrada.rol === "usuario") agregar(crear("div", "burbuja usuario")).textContent = entrada.texto
+      else pintarRespuesta({ reply: entrada.texto, toolCalls: entrada.toolCalls, needsConfirmation: entrada.needsConfirmation && i === historial.length - 1 })
+    })
+  } catch {
+    // Sin historial: se queda la bienvenida.
+  }
+}
+
+restaurar()

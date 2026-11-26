@@ -11,7 +11,8 @@ import { join } from "node:path"
 import { z } from "zod"
 import { registrarControl } from "../dominio/control"
 import { validar as aplicarControles } from "../dominio/controles"
-import { OrdenCompraSchema, PaqueteSchema, type Validacion } from "../dominio/esquemas"
+import { OrdenCompraSchema, PaqueteSchema, SolicitudSchema, type Validacion } from "../dominio/esquemas"
+import { leerExcel } from "../dominio/excel"
 import { archivoEvidencia, construirEvidencia, pdfEvidencia } from "../dominio/evidencia"
 import { cargarMaestros, leerPaquete } from "../dominio/lectura"
 import { construirOrden, mismaOrden } from "../dominio/payload"
@@ -217,6 +218,29 @@ export const crear = definir({
     } catch (e) {
       registrarControl(ctx.directory, { solicitud_id: solicitudId, resultado: "error", numero_oc: "", retroactiva: false, bloqueos: [], confirmaciones: [] })
       return fallo(`No se pudo crear la orden: ${mensajeError(e)}`)
+    }
+  },
+})
+
+export const leer_excel = definir({
+  description:
+    "Lee un Excel de solicitud (.xlsx) y devuelve sus filas; indica además si la primera fila cumple el formato de una solicitud de compra.",
+  args: {
+    ruta: z.string().describe("Ruta relativa del archivo .xlsx dentro de fixtures/ o ejemplos/, por ejemplo ejemplos/solicitud-sol-001.xlsx"),
+  },
+  async execute(args, ctx) {
+    try {
+      const leido = await leerExcel(ctx.directory, args.ruta)
+      if (!leido.ok) return fallo(leido.error)
+      const comoSolicitud = SolicitudSchema.safeParse(leido.valor.filas[0])
+      return exito({
+        hoja: leido.valor.hoja,
+        filas: leido.valor.filas,
+        solicitud_valida: comoSolicitud.success,
+        errores_solicitud: comoSolicitud.success ? [] : comoSolicitud.error.issues.map((i) => `${i.path.join(".") || "(fila)"}: ${i.message}`),
+      })
+    } catch (e) {
+      return fallo(`No se pudo leer el Excel: ${mensajeError(e)}`)
     }
   },
 })

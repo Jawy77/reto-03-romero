@@ -8,6 +8,7 @@ import { esConfirmacion, extraerCaso } from "../src/agent/confirmacion"
 import { validar } from "../src/dominio/controles"
 import type { Maestros, Paquete } from "../src/dominio/esquemas"
 import { cargarMaestros, contieneAprobacion, leerPaquete } from "../src/dominio/lectura"
+import { leerExcel } from "../src/dominio/excel"
 import { normalizarNit, parseMonto, textoBreve } from "../src/dominio/texto"
 
 const RAIZ = join(import.meta.dir, "..")
@@ -129,6 +130,22 @@ describe("lectura y normalización", () => {
   test("un caso fuera de fixtures no se lee", () => {
     expect(leerPaquete(RAIZ, "../maestros").ok).toBe(false)
     expect(leerPaquete(RAIZ, "sol-999").ok).toBe(false)
+  })
+})
+
+describe("lectura de Excel", () => {
+  test("el Excel de ejemplo trae la misma solicitud que el fixture", async () => {
+    const excel = await leerExcel(RAIZ, "ejemplos/solicitud-sol-001.xlsx")
+    if (!excel.ok) throw new Error(excel.error)
+    expect(excel.valor.filas).toHaveLength(1)
+    expect(excel.valor.filas[0]).toEqual({ ...paquete().solicitud })
+  })
+
+  test("no lee fuera de las carpetas de datos ni otros formatos", async () => {
+    expect((await leerExcel(RAIZ, "../secreto.xlsx")).ok).toBe(false)
+    expect((await leerExcel(RAIZ, "/etc/passwd")).ok).toBe(false)
+    expect((await leerExcel(RAIZ, "src/server.ts")).ok).toBe(false)
+    expect((await leerExcel(RAIZ, "fixtures/reto-03/maestros/proveedores.json")).ok).toBe(false)
   })
 })
 

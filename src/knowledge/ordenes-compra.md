@@ -6,6 +6,8 @@ Cada compra llega a administración por correo con tres piezas: la solicitud (un
 
 Los casos disponibles están en `fixtures/reto-03/solicitudes/` y se nombran `sol-001` a `sol-006`. Si la analista dice "SOL-2026-004" o "la solicitud 4", el caso es `sol-004`.
 
+Los fixtures traen la solicitud ya convertida a JSON. Si la analista tiene el Excel original, `oc_leer_excel` lee un `.xlsx` dentro de `fixtures/` o `ejemplos/` y dice si cumple el formato de una solicitud; hay uno de muestra en `ejemplos/solicitud-sol-001.xlsx`. Esa lectura es informativa: la orden siempre se arma con el paquete del caso.
+
 ## Reglas de control
 
 Un **bloqueo** impide crear la orden. Una **confirmación** la permite solo si la analista lo confirma. Un **derivado** es un valor que se completó desde un maestro y solo se informa.

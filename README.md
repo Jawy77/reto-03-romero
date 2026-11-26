@@ -20,7 +20,7 @@ Con Docker:
 docker compose up --build
 ```
 
-Sin clave de modelo, la aplicación arranca en **modo simulado**: el chat y el ciclo del agente funcionan con un proveedor de reglas fijas, sin modelo de lenguaje. Para usar un modelo real, copia `.env.example` como `.env` y completa `ANTHROPIC_API_KEY`.
+Sin clave de modelo, la aplicación arranca en **modo simulado**: el chat y el ciclo del agente funcionan con un proveedor de reglas fijas, sin modelo de lenguaje. Para usar un modelo real, copia `.env.example` como `.env` y completa `KIMI_API_KEY` (Kimi, de Moonshot AI) o `ANTHROPIC_API_KEY`.
 
 ## Verificar sin modelo
 
@@ -28,12 +28,12 @@ Sin clave de modelo, la aplicación arranca en **modo simulado**: el chat y el c
 bun install && bun run demo.ts
 ```
 
-`demo.ts` procesa los seis casos llamando directamente a las herramientas, sin clave de ningún proveedor. Muestra por caso si es apta, los bloqueos, las confirmaciones, si es retroactiva y el número de OC o el motivo. También ejecuta `sol-001` dos veces para mostrar la idempotencia, confirma `sol-004` de forma explícita e intenta crear una orden con el precio alterado para mostrar que se rechaza. Termina con código 1 si algún caso no da el resultado que exige el PRD.
+`demo.ts` procesa los seis casos llamando directamente a las herramientas, sin clave de ningún proveedor. Muestra por caso si es apta, los bloqueos, las confirmaciones, si es retroactiva y el número de OC o el motivo. También ejecuta `sol-001` dos veces para mostrar la idempotencia, confirma `sol-004` de forma explícita e intenta antes crearla con el precio alterado para mostrar que se rechaza. Al final lista las órdenes del SAP simulado y el log de control. Termina con código 1 si algún caso no da el resultado que exige el PRD.
 
 | Comando | Qué hace |
 |---|---|
 | `bun run demo.ts` | Los 6 casos sin modelo |
-| `bun test` | 17 pruebas de las reglas con variaciones que los fixtures no cubren |
+| `bun test` | 19 pruebas de las reglas, la lectura de Excel y la confirmación, con variaciones que los fixtures no cubren |
 | `bun run typecheck` | TypeScript en modo estricto |
 | `bun run verificar` | Las tres anteriores en cadena |
 | `bun run modulo` | Regenera `modulo/` desde las fuentes de la aplicación |
@@ -44,10 +44,12 @@ Todas son opcionales; los valores por defecto están en [`.env.example`](.env.ex
 
 | Variable | Por defecto | Para qué |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | vacía | Clave del modelo. Solo la lee el backend. |
-| `LLM_PROVIDER` | automático | `anthropic` o `simulado`. Vacía: `anthropic` si hay clave; si no, `simulado`. |
-| `LLM_MODEL` | `claude-opus-5-5` | Modelo del proveedor. |
-| `LLM_EFFORT` | `low` | Nivel de esfuerzo del modelo. |
+| `KIMI_API_KEY` | vacía | Clave de Kimi (Moonshot AI). Solo la lee el backend. |
+| `ANTHROPIC_API_KEY` | vacía | Clave de Anthropic, como proveedor alterno. Solo la lee el backend. |
+| `LLM_PROVIDER` | automático | `kimi`, `anthropic` o `simulado`. Vacía: el primero que tenga clave; sin claves, `simulado`. |
+| `KIMI_BASE_URL` | `https://api.moonshot.ai/v1` | Endpoint compatible con Chat Completions. |
+| `LLM_MODEL` | según proveedor | `kimi-k2-turbo-preview` con Kimi, `claude-opus-5-5` con Anthropic. |
+| `LLM_EFFORT` | `low` | Nivel de esfuerzo; solo aplica a Anthropic. |
 | `MAX_ITERACIONES` | `25` | Tope de pasos herramienta → modelo por turno. |
 | `MAX_TOKENS_SESION` | `200000` | Tope de tokens por sesión. |
 | `MAX_TOKENS_DIA` | `2000000` | Tope diario de tokens para todo el servicio. |
@@ -77,6 +79,8 @@ validaciones pasó y cuáles no, y no la crees hasta que yo lo confirme.
 
 El agente muestra la orden en una tabla, los controles, la confirmación pendiente con los dos valores (solicitud y cotización) y cierra con una pregunta resaltada. Al responder "Confirmo", devuelve el número de OC y la ruta de la evidencia.
 
+Los archivos que genera el proceso quedan en `out/`: `out/sap/ordenes.jsonl` (órdenes), `out/control.csv` (una fila por intento), `out/log.jsonl` (llamadas a herramientas) y, por caso, `payload.json`, `trazabilidad.json`, `aprobacion.txt` y `aprobacion.pdf`.
+
 ## Estructura
 
 ```
@@ -85,11 +89,12 @@ src/knowledge/               conocimiento del proceso
 src/tools/oc.ts              herramientas oc_* tipadas con zod
 src/dominio/                 reglas de control, payload, evidencia y log de control
 src/sap/                     interfaz SapAdapter y SAP simulado sobre archivos
-src/llm/                     interfaz AdaptadorLLM, Anthropic y proveedor simulado
+src/llm/                     interfaz AdaptadorLLM: Kimi, Anthropic y proveedor simulado
 src/agent/ciclo.ts           ciclo del agente, topes y confirmación humana
 src/server.ts                API HTTP y archivos estáticos
 web/                         front de chat (HTML, CSS y JavaScript planos)
 modulo/                      agente empaquetado como módulo reutilizable
+ejemplos/                    Excel de muestra para oc_leer_excel
 tests/                       pruebas de las reglas
 demo.ts                      verificación sin modelo
 fixtures/                    entregados por Periferia, sin modificar

@@ -39,6 +39,7 @@ export const herramientas: HerramientaRegistrada[] = [
   registrar("oc", "construir_payload", oc.construir_payload),
   registrar("oc", "generar_evidencia", oc.generar_evidencia),
   registrar("oc", "crear", oc.crear),
+  registrar("oc", "leer_excel", oc.leer_excel),
 ]
 
 export function buscarHerramienta(nombre: string): HerramientaRegistrada | undefined {
