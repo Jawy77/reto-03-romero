@@ -25,11 +25,12 @@ const CONFIG = {
 }
 
 function crearAdaptador(): AdaptadorLLM {
-  const proveedor = process.env.LLM_PROVIDER ?? (process.env.ANTHROPIC_API_KEY ? "anthropic" : "simulado")
+  // Con || y no ??: una variable vacía en .env cuenta como no definida.
+  const proveedor = process.env.LLM_PROVIDER || (process.env.ANTHROPIC_API_KEY ? "anthropic" : "simulado")
   if (proveedor !== "anthropic") return new AdaptadorSimulado()
   const esfuerzo = z.enum(["low", "medium", "high", "xhigh", "max"]).catch("low").parse(process.env.LLM_EFFORT)
   return new AdaptadorAnthropic({
-    modelo: process.env.LLM_MODEL ?? "claude-opus-5-5",
+    modelo: process.env.LLM_MODEL || "claude-opus-5-5",
     esfuerzo,
     maxTokens: entero("LLM_MAX_TOKENS", 8000),
     timeoutMs: entero("LLM_TIMEOUT_MS", 90_000),

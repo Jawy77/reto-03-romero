@@ -119,7 +119,8 @@ body {
 .tabla { overflow-x: auto; margin: 0 0 10px; }
 table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
 th, td { padding: 6px 10px; border: 1px solid var(--borde); text-align: left; vertical-align: top; }
-th { background: #eef2f0; font-weight: 600; }
+th { background: #eef2f0; font-weight: 600; white-space: nowrap; }
+td:first-child { white-space: nowrap; }
 
 .herramienta {
   align-self: stretch;

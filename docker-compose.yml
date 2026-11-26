@@ -1,0 +1,22 @@
+# Un comando levanta front y backend:  docker compose up --build
+services:
+  agente:
+    build: .
+    ports:
+      - "${PUERTO_PUBLICO:-3000}:3000"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - salida:/app/out
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  salida:
