@@ -9,7 +9,9 @@
     "start": "bun src/server.ts",
     "demo": "bun run demo.ts",
     "typecheck": "tsc --noEmit",
-    "modulo": "bun run scripts/build-modulo.ts"
+    "modulo": "bun run scripts/build-modulo.ts",
+    "test": "bun test",
+    "verificar": "bun run typecheck && bun test && bun run demo.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.14.0",

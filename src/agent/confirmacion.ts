@@ -10,9 +10,10 @@ export function esNegativa(mensaje: string): boolean {
   return NEGATIVA.test(mensaje)
 }
 
-/** "Confirmo" autoriza; "no la crees hasta que yo confirme" no. */
+/** "Confirmo" autoriza; "no la crees hasta que yo confirme" y "¿qué pasa si confirmo?" no. */
 export function esConfirmacion(mensaje: string): boolean {
-  return AFIRMATIVA.test(mensaje) && !esNegativa(mensaje)
+  const esPregunta = /[?¿]/.test(mensaje)
+  return AFIRMATIVA.test(mensaje) && !esNegativa(mensaje) && !esPregunta
 }
 
 /** "sol-004", "SOL-2026-004" o "solicitud 4" → "sol-004". */

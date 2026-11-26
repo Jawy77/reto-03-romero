@@ -3,8 +3,13 @@
     "target": "ESNext",
     "module": "Preserve",
     "moduleResolution": "bundler",
-    "lib": ["ESNext", "DOM"],
-    "types": ["bun"],
+    "lib": [
+      "ESNext",
+      "DOM"
+    ],
+    "types": [
+      "bun"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
@@ -12,5 +17,11 @@
     "skipLibCheck": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src", "demo.ts", "scripts", "modulo"]
+  "include": [
+    "src",
+    "demo.ts",
+    "scripts",
+    "modulo",
+    "tests"
+  ]
 }

@@ -1,0 +1,21 @@
+name: verificacion
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.5"
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test
+      - name: Demo sin modelo (los 6 casos)
+        run: bun run demo.ts
+      - name: El modulo reutilizable coincide con la aplicacion
+        run: bun run modulo --check
