@@ -12,7 +12,7 @@ import { z } from "zod"
 import { registrarControl } from "../dominio/control"
 import { validar as aplicarControles } from "../dominio/controles"
 import { OrdenCompraSchema, PaqueteSchema, type Validacion } from "../dominio/esquemas"
-import { archivoEvidencia, construirEvidencia } from "../dominio/evidencia"
+import { archivoEvidencia, construirEvidencia, pdfEvidencia } from "../dominio/evidencia"
 import { cargarMaestros, leerPaquete } from "../dominio/lectura"
 import { construirOrden, mismaOrden } from "../dominio/payload"
 import { SapMock } from "../sap/mock"
@@ -20,10 +20,10 @@ import { definir, exito, fallo, type Contexto } from "./tipos"
 
 const argCaso = z.string().describe("Nombre de la carpeta del caso en fixtures/reto-03/solicitudes/, por ejemplo sol-001")
 
-function escribir(ctx: Contexto, caso: string, nombre: string, contenido: string): string {
+function escribir(ctx: Contexto, caso: string, nombre: string, contenido: string | Uint8Array): string {
   const carpeta = join(ctx.directory, "out", caso)
   mkdirSync(carpeta, { recursive: true })
-  writeFileSync(join(carpeta, nombre), contenido, "utf8")
+  writeFileSync(join(carpeta, nombre), contenido)
   return join("out", caso, nombre)
 }
 
@@ -118,14 +118,15 @@ export const construir_payload = definir({
 
 export const generar_evidencia = definir({
   description:
-    "Genera el archivo de evidencia con el correo de aprobación del líder (encabezados, cuerpo y huella sha256) para adjuntarlo a la orden.",
+    "Genera la evidencia del correo de aprobación del líder (encabezados, cuerpo y huella sha256) en texto y en PDF, para adjuntarla a la orden.",
   args: { caso: argCaso },
   async execute(args, ctx) {
     try {
       const evidencia = construirEvidencia(ctx.directory, args.caso)
       if (!evidencia.ok) return fallo(evidencia.error)
       const ruta = escribir(ctx, args.caso, "aprobacion.txt", archivoEvidencia(evidencia.valor))
-      return exito({ ruta, sha256: evidencia.valor.sha256 })
+      const ruta_pdf = escribir(ctx, args.caso, "aprobacion.pdf", await pdfEvidencia(evidencia.valor))
+      return exito({ ruta, ruta_pdf, sha256: evidencia.valor.sha256 })
     } catch (e) {
       return fallo(`No se pudo generar la evidencia: ${mensajeError(e)}`)
     }
