@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agente de órdenes de compra · SAP</title>
+    <link rel="stylesheet" href="/estilos.css" />
+  </head>
+  <body>
+    <header class="barra">
+      <div>
+        <h1>Órdenes de compra</h1>
+        <p class="sub">Agente conversacional sobre SAP simulado · Reto 03</p>
+      </div>
+      <div class="estado">
+        <span id="proveedor" class="chip">conectando…</span>
+        <button id="nueva" class="secundario" type="button">Sesión nueva</button>
+      </div>
+    </header>
+
+    <main class="lienzo">
+      <aside class="lateral">
+        <h2>Casos de prueba</h2>
+        <div id="casos" class="casos"></div>
+        <h2>Prompt de la demo</h2>
+        <button id="demo" class="caso" type="button">Procesa "sol-004" sin crear hasta que confirme</button>
+        <p class="nota">Cada llamada a herramienta aparece en el chat con sus argumentos y su resultado. Cuando el agente necesita tu decisión, la respuesta queda resaltada.</p>
+      </aside>
+
+      <section class="chat">
+        <div id="mensajes" class="mensajes" aria-live="polite"></div>
+        <form id="formulario" class="entrada">
+          <textarea id="texto" rows="1" maxlength="2000" placeholder='Escribe, por ejemplo: procesa la solicitud "sol-001"' aria-label="Mensaje"></textarea>
+          <button id="enviar" type="submit">Enviar</button>
+        </form>
+      </section>
+    </main>
+    <script src="/app.js" defer></script>
+  </body>
+</html>
