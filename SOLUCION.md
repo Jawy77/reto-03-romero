@@ -24,11 +24,12 @@ Cada orden de compra se digita a mano en SAP a partir de un correo, y la verific
                                        │    │                         │               │
                                        │    ▼                         ▼               │
                                        │ src/llm/adapter.ts      src/tools/oc.ts      │
-                                       │ ├─ anthropic.ts         oc_leer_paquete      │
-                                       │ └─ simulado.ts          oc_validar           │
-                                       │                         oc_construir_payload │
+                                       │ ├─ openai-compatible.ts oc_leer_paquete      │
+                                       │ ├─ anthropic.ts         oc_validar           │
+                                       │ └─ simulado.ts          oc_construir_payload │
                                        │                         oc_generar_evidencia │
                                        │                         oc_crear             │
+                                       │                         oc_leer_excel        │
                                        │                              │               │
                                        │                              ▼               │
                                        │                    src/dominio/  src/sap/    │
@@ -76,13 +77,22 @@ Cuando un caso queda pendiente, la respuesta lleva `needsConfirmation: true` y e
 
 | Aspecto | Decisión |
 |---|---|
-| Proveedor | Anthropic, por la API de mensajes con uso de herramientas |
-| Modelo por defecto | `claude-opus-5-5` con esfuerzo `low`, configurable con `LLM_MODEL` y `LLM_EFFORT` |
-| Adaptador | `src/llm/adapter.ts` define `enviar(mensajes, herramientas, opciones)`; el ciclo no importa nada del SDK |
+| Proveedor | Kimi, de Moonshot AI, por su API compatible con Chat Completions y uso de herramientas |
+| Modelo por defecto | `kimi-k2-turbo-preview`, configurable con `LLM_MODEL` |
+| Proveedor alterno | Anthropic (`claude-opus-5-5`), ya implementado; se activa con `LLM_PROVIDER=anthropic` |
+| Adaptador | `src/llm/adapter.ts` define `enviar(mensajes, herramientas, opciones)`; el ciclo no importa nada de ningún proveedor |
 
-El trabajo del modelo aquí es acotado: elegir la herramienta siguiente, respetar la regla de confirmación y redactar la respuesta en español con tablas. Las decisiones de control no dependen de él. Por eso el esfuerzo es `low` y un modelo más pequeño es un candidato serio para producción.
+El trabajo del modelo aquí es acotado: elegir la herramienta siguiente, respetar la regla de confirmación y redactar la respuesta en español con tablas. Las decisiones de control no dependen de él, así que no hace falta el modelo más capaz del mercado; hace falta uno que llame herramientas con fiabilidad y cueste poco por caso. Kimi cumple ese perfil y es el proveedor del que tengo una clave para exponer en un link público.
 
-**Costo estimado por caso.** Es una estimación a partir del tamaño del prompt y de los resultados de las herramientas, no una medición: el caso normal usa seis llamadas al modelo, con unos 24 000 tokens de entrada acumulados (el prompt y las herramientas, de unos 2 300 tokens, se reenvían en cada llamada) y unos 1 400 de salida.
+Que el proveedor no ate la solución se demuestra en el repositorio: hay tres implementaciones del adaptador (`openai-compatible.ts` para Kimi, `anthropic.ts` y `simulado.ts`) y agregar la de Kimi no cambió una línea del ciclo. El modo simulado recorre el mismo guion con reglas fijas, sin modelo, y es lo que corre cuando no hay ninguna clave.
+
+**Costo estimado por caso.** Es una estimación a partir del tamaño del prompt y de los resultados de las herramientas, no una medición: el caso normal usa seis llamadas al modelo, con unos 24 000 tokens de entrada acumulados (el prompt y las herramientas, de unos 2 500 tokens, se reenvían en cada llamada) y unos 1 400 de salida. El costo es entonces:
+
+```
+costo por caso ≈ 0,024 × precio por millón de entrada + 0,0014 × precio por millón de salida
+```
+
+Con la tarifa vigente del modelo de Kimi que quede configurado se obtiene el valor exacto. Como referencia de orden de magnitud, con los precios publicados del proveedor alterno:
 
 | Modelo | Precio por millón (entrada / salida) | Costo estimado por caso |
 |---|---|---|
@@ -90,11 +100,11 @@ El trabajo del modelo aquí es acotado: elegir la herramienta siguiente, respeta
 | `claude-sonnet-5-5` | USD 2 / USD 10 | USD 0,06 |
 | `claude-haiku-5-5` | USD 0,10 / USD 0,50 | USD 0,003 |
 
-Antes de fijar el modelo de producción mediría los seis casos con cada uno (el campo `tokensSesion` de la API da el consumo real) y elegiría el más barato que respete la confirmación y no invente valores en todos. El modo simulado (`src/llm/simulado.ts`) es la segunda implementación del adaptador: recorre el mismo guion con reglas fijas, permite probar el ciclo y el chat sin clave y demuestra que cambiar de proveedor no toca el ciclo.
+Antes de fijar el modelo de producción mediría los seis casos con cada candidato (el campo `tokensSesion` de la API da el consumo real) y elegiría el más barato que respete la confirmación y no invente valores en todos.
 
 ## 5. Matriz de controles
 
-Las diez reglas están en `src/dominio/controles.ts`, en una sola función pura, `validar(paquete, maestros)`. Devuelve `apta`, `bloqueos`, `confirmaciones`, `derivados`, `retroactiva` y el resultado regla por regla, que es lo que el agente muestra como tabla.
+Las diez reglas están en `src/dominio/controles.ts`, una función por regla (`rc1Proveedor` a `rc10Aritmetica`), y `validar(paquete, maestros)` las recorre en orden. Es una función pura. Devuelve `apta`, `bloqueos`, `confirmaciones`, `derivados`, `retroactiva` y el resultado regla por regla, que es lo que el agente muestra como tabla.
 
 | Regla | Implementación | Tipo | Caso que la ejerce |
 |---|---|---|---|
@@ -193,6 +203,18 @@ A la dirección le diría tres cosas.
 | Respuesta completa por turno | Streaming de eventos | Es opcional en el PRD. El turno dura segundos y el front muestra el indicador de trabajo; streaming sumaba complejidad sin cambiar el resultado |
 | La orden se crea por el valor de la solicitud aunque la cotización difiera | Tomar el valor de la cotización al confirmar | El líder aprobó el valor de la solicitud ("Aprobado por 25 millones"). Crear por 26,5 millones sería crear una orden por un monto que nadie aprobó |
 
+### Dependencias
+
+| Paquete | Para qué | Por qué este |
+|---|---|---|
+| `zod` | Esquemas de los argumentos de las herramientas, de los fixtures, de la orden y de las respuestas del proveedor | Obligatorio en el PRD; además los tipos de TypeScript se infieren de los esquemas, sin duplicarlos |
+| `@anthropic-ai/sdk` | Adaptador de Anthropic | SDK oficial, con errores tipados y reintentos |
+| `pdf-lib` | Evidencia de aprobación en PDF (HU-4, P1) | Genera PDF en JavaScript puro, sin binarios ni navegador |
+| `exceljs` | `oc_leer_excel` (P1) | Lee `.xlsx` reales, incluidas fórmulas y fechas; es la dependencia más pesada y la única razón para tenerla es esa herramienta opcional |
+| `typescript`, `@types/bun` | Verificación de tipos en modo estricto | Solo en desarrollo |
+
+El adaptador de Kimi no usa SDK: es una llamada HTTP con `fetch` y la respuesta se valida con zod. El servidor usa el HTTP nativo de Bun y el front no tiene dependencias.
+
 ## 9. Supuestos
 
 - **Un reto, no tres.** Recursos Humanos indicó que se escoge uno. Elegí el 03.
@@ -216,13 +238,13 @@ A la dirección le diría tres cosas.
 | HU-4 Evidencia | Hecho (P0 y P1) | `aprobacion.txt` con sha256 y `aprobacion.pdf` |
 | HU-5 Crear en SAP simulado | Hecho | Numeración desde 4500000001, idempotencia y fila en `control.csv` por intento |
 | HU-6 Errores | Hecho | `{ ok: false, error }` legible con sugerencia |
-| `oc_leer_excel` (P1 opcional) | No hecho | Los fixtures ya vienen normalizados; ver abajo |
+| `oc_leer_excel` (P1 opcional) | Hecho | Lee un `.xlsx` real y dice si cumple el formato de una solicitud; solo rutas dentro de `fixtures/` o `ejemplos/` |
 | Bonus: módulo reutilizable | Hecho | `modulo/`, generado desde las fuentes y verificado en CI |
 | Link público | Hecho | http://52.3.131.158 |
 
 Qué falta para producción:
 
-- Lectura de Excel y PDF reales, con manejo de plantillas distintas y de documentos escaneados.
+- Lectura de PDF reales de cotización y factura, incluidos los escaneados, y de plantillas de Excel distintas a la de ejemplo. Hoy `oc_leer_excel` lee el Excel pero la orden se arma con el JSON del fixture.
 - Autenticación de usuarias y registro de quién confirmó cada excepción (hoy se anota la sesión).
 - Persistencia real de sesiones, órdenes y log de control, con bloqueo ante concurrencia.
 - HTTPS con dominio propio; el link actual es HTTP sobre una IP.
@@ -238,6 +260,7 @@ Esta solución se construyó con **Claude Code** (modelo Claude Fable 5.2 de Ant
 | Lectura de los tres retos y recomendación de cuál elegir | El asistente propuso el 03 con sus razones; la decisión fue mía |
 | Arquitectura | Yo propuse inicialmente un esquema con ADK, subagentes, MCP y Docker. El asistente, tras leer el PRD, recomendó un ciclo propio y un solo agente; acepté |
 | Código, pruebas, `demo.ts`, front, Dockerfile y este documento | Escritos por el asistente; yo definí el alcance y aprobé las acciones sobre el repositorio y la infraestructura |
+| Proveedor del modelo | Yo decidí usar Kimi; el asistente escribió el adaptador |
 | Infraestructura | Yo creé el repositorio y di acceso a la cuenta de AWS; el asistente creó la instancia y desplegó, con mi aprobación en cada paso |
 
 Qué se descartó de lo propuesto y por qué:
@@ -246,6 +269,8 @@ Qué se descartó de lo propuesto y por qué:
 - **Instalar Bun con `curl | sh`** (propuesta del asistente): lo bloqueó mi control local contra ejecución de código remoto; se instaló con el gestor de paquetes.
 - **Construir la imagen con `docker compose build` en el servidor**: falló por la versión del constructor; se construyó con `docker build`.
 - **Tratar una pregunta como confirmación**: la primera versión del reconocedor aceptaba "¿qué pasa si confirmo?"; se corrigió y quedó con prueba.
+
+Tras la primera versión pedí un repaso contra las instrucciones. De ahí salieron la función por regla, la trazabilidad con las fuentes del PRD, `oc_leer_excel`, la justificación de dependencias y la corrección de `demo.ts`, que borraba las órdenes del SAP simulado al terminar.
 
 No se usó IA en tiempo de ejecución más allá del modelo que conversa en el chat, y ese modelo no decide ningún control.
 
@@ -257,7 +282,7 @@ No se usó IA en tiempo de ejecución más allá del modelo que conversa en el c
 | **Suplantación del aprobador.** RC2 confía en el campo "de" del correo | Verificar la autenticidad del correo (SPF, DKIM y DMARC en el buzón de compras) o tomar la aprobación de un flujo autenticado en lugar de un correo reenviado |
 | **Uso indebido del link público.** El chat no tiene autenticación | Hoy: límite de mensajes por IP, tope de tokens por sesión y tope diario. En producción: inicio de sesión corporativo, y el agente solo dentro de la red de la compañía |
 | **Costo del modelo fuera de control** | Topes configurables ya implementados; alertas de gasto en el proveedor; modelo pequeño para el flujo normal |
-| **Datos personales y comerciales hacia un tercero.** El modelo recibe nombres, correos, NIT y montos | Acuerdo de tratamiento de datos con el proveedor, retención mínima y, si la política lo exige, un modelo desplegado en la nube de la compañía. El adaptador permite cambiarlo |
+| **Datos personales y comerciales hacia un tercero.** El modelo recibe nombres, correos, NIT y montos, y el proveedor puede procesarlos fuera del país | Con datos reales: acuerdo de tratamiento de datos con el proveedor, revisión de dónde se procesan y cuánto se retienen y, si la política lo exige, un modelo desplegado en la nube de la compañía. El adaptador permite cambiarlo sin tocar el agente. En esta prueba los datos son ficticios |
 | **El modelo altera un valor** | Ya mitigado: el payload se reconstruye y se compara en `oc_crear` |
 | **Desfase entre los maestros y SAP** | En producción los maestros se consultan en SAP en tiempo real; `oc_crear` ya revalida el proveedor antes de escribir |
 | **Separación de funciones.** La misma persona podría solicitar, confirmar y crear | Registrar la identidad de quien confirma y bloquear que coincida con el solicitante; en `sol-005` la solicitante se llama Camila, igual que la analista a quien se dirigen los correos, y nada lo impediría |
