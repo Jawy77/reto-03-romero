@@ -7,6 +7,11 @@ services:
     env_file:
       - path: .env
         required: false
+    # Las claves también pueden llegar del entorno del host (por ejemplo, leídas de un
+    # gestor de secretos al arrancar); si están definidas, tienen prioridad sobre .env.
+    environment:
+      - KIMI_API_KEY
+      - ANTHROPIC_API_KEY
     volumes:
       - salida:/app/out
     read_only: true
