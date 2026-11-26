@@ -34,7 +34,7 @@ function crearAdaptador(): AdaptadorLLM {
   if (proveedor === "kimi" && process.env.KIMI_API_KEY) {
     return new AdaptadorOpenAICompatible({
       proveedor: "kimi",
-      modelo: process.env.LLM_MODEL || "kimi-k2-turbo-preview",
+      modelo: process.env.LLM_MODEL || "kimi-k3",
       baseUrl: process.env.KIMI_BASE_URL || "https://api.moonshot.ai/v1",
       apiKey: process.env.KIMI_API_KEY,
       maxTokens,

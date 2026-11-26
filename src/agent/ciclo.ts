@@ -146,7 +146,10 @@ export async function ejecutarTurno(sesion: Sesion, mensaje: string, deps: Depen
   }
 
   const pidioEsteTurno = [...sesion.pendientes.values()].some((turno) => turno === sesion.turno)
-  const cierraPreguntando = toolCalls.length > 0 && /\?\s*$/.test(reply)
+  // Una pregunta final solo cuenta como confirmación si se preparó una orden y no se creó en este turno.
+  const preparo = toolCalls.some((t) => t.nombre === "oc_construir_payload" && t.ok)
+  const creo = toolCalls.some((t) => t.nombre === "oc_crear" && t.ok)
+  const cierraPreguntando = preparo && !creo && /\?\s*$/.test(reply)
   const needsConfirmation = pidioEsteTurno || cierraPreguntando
   sesion.historial.push({ rol: "asistente", texto: reply, ts: ahora(), toolCalls, needsConfirmation })
   return { reply, toolCalls, needsConfirmation, tokensSesion: sesion.tokens }

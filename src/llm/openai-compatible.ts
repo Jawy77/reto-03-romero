@@ -100,10 +100,19 @@ export class AdaptadorOpenAICompatible implements AdaptadorLLM {
     this.modelo = opciones.modelo
   }
 
+  /** Un 429 suele ser un límite de concurrencia momentáneo: se reintenta dos veces con espera. */
   private async pedir(ruta: string, cuerpo?: unknown): Promise<unknown> {
-    let respuesta: Response
+    for (const esperaMs of [2_000, 5_000]) {
+      const respuesta = await this.llamar(ruta, cuerpo)
+      if (respuesta.status !== 429) return this.interpretar(respuesta)
+      await new Promise((resolver) => setTimeout(resolver, esperaMs))
+    }
+    return this.interpretar(await this.llamar(ruta, cuerpo))
+  }
+
+  private async llamar(ruta: string, cuerpo?: unknown): Promise<Response> {
     try {
-      respuesta = await fetch(`${this.opciones.baseUrl.replace(/\/+$/, "")}${ruta}`, {
+      return await fetch(`${this.opciones.baseUrl.replace(/\/+$/, "")}${ruta}`, {
         method: cuerpo ? "POST" : "GET",
         headers: { Authorization: `Bearer ${this.opciones.apiKey}`, "Content-Type": "application/json" },
         body: cuerpo ? JSON.stringify(cuerpo) : undefined,
@@ -113,6 +122,9 @@ export class AdaptadorOpenAICompatible implements AdaptadorLLM {
       if (e instanceof Error && e.name === "TimeoutError") throw new ErrorLLM("El modelo tardó demasiado en responder. Intenta de nuevo.")
       throw new ErrorLLM("No hubo conexión con el proveedor del modelo.")
     }
+  }
+
+  private async interpretar(respuesta: Response): Promise<unknown> {
     if (respuesta.status === 401 || respuesta.status === 403) throw new ErrorLLM("El proveedor del modelo rechazó la credencial configurada en el servidor.")
     if (respuesta.status === 429) throw new ErrorLLM("El proveedor del modelo está limitando las peticiones o la cuenta no tiene saldo. Intenta de nuevo en un minuto.")
     if (respuesta.status === 400 || respuesta.status === 404) throw new ErrorLLM(`El proveedor del modelo rechazó la petición (${respuesta.status}). Revisa el modelo configurado.`)

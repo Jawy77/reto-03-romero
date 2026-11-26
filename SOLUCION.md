@@ -78,7 +78,7 @@ Cuando un caso queda pendiente, la respuesta lleva `needsConfirmation: true` y e
 | Aspecto | Decisión |
 |---|---|
 | Proveedor | Kimi, de Moonshot AI, por su API compatible con Chat Completions y uso de herramientas |
-| Modelo por defecto | `kimi-k2-turbo-preview`, configurable con `LLM_MODEL` |
+| Modelo por defecto | `kimi-k3`, configurable con `LLM_MODEL` |
 | Proveedor alterno | Anthropic (`claude-opus-5-5`), ya implementado; se activa con `LLM_PROVIDER=anthropic` |
 | Adaptador | `src/llm/adapter.ts` define `enviar(mensajes, herramientas, opciones)`; el ciclo no importa nada de ningún proveedor |
 

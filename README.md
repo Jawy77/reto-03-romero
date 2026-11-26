@@ -48,7 +48,7 @@ Todas son opcionales; los valores por defecto están en [`.env.example`](.env.ex
 | `ANTHROPIC_API_KEY` | vacía | Clave de Anthropic, como proveedor alterno. Solo la lee el backend. |
 | `LLM_PROVIDER` | automático | `kimi`, `anthropic` o `simulado`. Vacía: el primero que tenga clave; sin claves, `simulado`. |
 | `KIMI_BASE_URL` | `https://api.moonshot.ai/v1` | Endpoint compatible con Chat Completions. |
-| `LLM_MODEL` | según proveedor | `kimi-k2-turbo-preview` con Kimi, `claude-opus-5-5` con Anthropic. |
+| `LLM_MODEL` | según proveedor | `kimi-k3` con Kimi, `claude-opus-5-5` con Anthropic. |
 | `LLM_EFFORT` | `low` | Nivel de esfuerzo; solo aplica a Anthropic. |
 | `MAX_ITERACIONES` | `25` | Tope de pasos herramienta → modelo por turno. |
 | `MAX_TOKENS_SESION` | `200000` | Tope de tokens por sesión. |
