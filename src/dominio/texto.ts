@@ -45,5 +45,7 @@ export function textoBreve(descripcion: string, maximo = 40): string {
   if (limpio.length <= maximo) return limpio
   const corte = limpio.slice(0, maximo)
   const ultimoEspacio = corte.lastIndexOf(" ")
-  return (ultimoEspacio > maximo * 0.6 ? corte.slice(0, ultimoEspacio) : corte).trim()
+  const porPalabra = (ultimoEspacio > maximo * 0.6 ? corte.slice(0, ultimoEspacio) : corte).trim()
+  // Evita terminar en una preposición o conjunción suelta ("... arquitectura de").
+  return porPalabra.replace(/[\s,;:]+(de|del|para|con|en|por|y|o|a|la|el|los|las)$/i, "").replace(/[\s,;:]+$/, "")
 }
