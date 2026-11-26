@@ -1,0 +1,22 @@
+{
+  "name": "reto-03-romero",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Agente conversacional de órdenes de compra sobre un SAP simulado (Reto 03, Periferia IT Group)",
+  "scripts": {
+    "dev": "bun --watch src/server.ts",
+    "start": "bun src/server.ts",
+    "demo": "bun run demo.ts",
+    "typecheck": "tsc --noEmit",
+    "modulo": "bun run scripts/build-modulo.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.5",
+    "typescript": "^7.0.2"
+  }
+}
