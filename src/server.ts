@@ -7,6 +7,7 @@ import { z } from "zod"
 import { ejecutarTurno, nuevaSesion, type Dependencias, type Sesion } from "./agent/ciclo"
 import type { AdaptadorLLM } from "./llm/adapter"
 import { AdaptadorAnthropic } from "./llm/anthropic"
+import { AdaptadorOpenAICompatible } from "./llm/openai-compatible"
 import { AdaptadorSimulado } from "./llm/simulado"
 
 const DIRECTORIO = join(import.meta.dir, "..")
@@ -26,15 +27,25 @@ const CONFIG = {
 
 function crearAdaptador(): AdaptadorLLM {
   // Con || y no ??: una variable vacía en .env cuenta como no definida.
-  const proveedor = process.env.LLM_PROVIDER || (process.env.ANTHROPIC_API_KEY ? "anthropic" : "simulado")
-  if (proveedor !== "anthropic") return new AdaptadorSimulado()
-  const esfuerzo = z.enum(["low", "medium", "high", "xhigh", "max"]).catch("low").parse(process.env.LLM_EFFORT)
-  return new AdaptadorAnthropic({
-    modelo: process.env.LLM_MODEL || "claude-opus-5-5",
-    esfuerzo,
-    maxTokens: entero("LLM_MAX_TOKENS", 8000),
-    timeoutMs: entero("LLM_TIMEOUT_MS", 90_000),
-  })
+  const automatico = process.env.KIMI_API_KEY ? "kimi" : process.env.ANTHROPIC_API_KEY ? "anthropic" : "simulado"
+  const proveedor = process.env.LLM_PROVIDER || automatico
+  const maxTokens = entero("LLM_MAX_TOKENS", 8000)
+  const timeoutMs = entero("LLM_TIMEOUT_MS", 90_000)
+  if (proveedor === "kimi" && process.env.KIMI_API_KEY) {
+    return new AdaptadorOpenAICompatible({
+      proveedor: "kimi",
+      modelo: process.env.LLM_MODEL || "kimi-k2-turbo-preview",
+      baseUrl: process.env.KIMI_BASE_URL || "https://api.moonshot.ai/v1",
+      apiKey: process.env.KIMI_API_KEY,
+      maxTokens,
+      timeoutMs,
+    })
+  }
+  if (proveedor === "anthropic") {
+    const esfuerzo = z.enum(["low", "medium", "high", "xhigh", "max"]).catch("low").parse(process.env.LLM_EFFORT)
+    return new AdaptadorAnthropic({ modelo: process.env.LLM_MODEL || "claude-opus-5-5", esfuerzo, maxTokens, timeoutMs })
+  }
+  return new AdaptadorSimulado()
 }
 
 const llm = crearAdaptador()
@@ -173,3 +184,8 @@ const servidor = Bun.serve({
 })
 
 console.log(`Agente de órdenes de compra en http://localhost:${servidor.port} · proveedor: ${llm.proveedor} · modelo: ${llm.modelo}`)
+if (llm instanceof AdaptadorOpenAICompatible) {
+  // Diagnóstico de arranque: confirma que la credencial sirve y qué modelos ofrece la cuenta.
+  const modelos = await llm.listarModelos()
+  console.log(modelos.length ? `Modelos disponibles en ${llm.proveedor}: ${modelos.join(", ")}` : `No se pudo listar modelos en ${llm.proveedor}: revisa la clave y KIMI_BASE_URL.`)
+}
