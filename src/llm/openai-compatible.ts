@@ -100,12 +100,16 @@ export class AdaptadorOpenAICompatible implements AdaptadorLLM {
     this.modelo = opciones.modelo
   }
 
-  /** Un 429 suele ser un límite de concurrencia momentáneo: se reintenta dos veces con espera. */
+  /**
+   * Un 429 es el límite por minuto de la cuenta: se espera y se reintenta hasta tres veces
+   * (unos 50 segundos en total), respetando Retry-After si el proveedor lo envía.
+   */
   private async pedir(ruta: string, cuerpo?: unknown): Promise<unknown> {
-    for (const esperaMs of [2_000, 5_000]) {
+    for (const esperaMs of [5_000, 15_000, 30_000]) {
       const respuesta = await this.llamar(ruta, cuerpo)
       if (respuesta.status !== 429) return this.interpretar(respuesta)
-      await new Promise((resolver) => setTimeout(resolver, esperaMs))
+      const indicada = Number(respuesta.headers.get("retry-after")) * 1000
+      await new Promise((resolver) => setTimeout(resolver, indicada > 0 && indicada <= 45_000 ? indicada : esperaMs))
     }
     return this.interpretar(await this.llamar(ruta, cuerpo))
   }

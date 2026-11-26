@@ -159,7 +159,7 @@ function casos(): string[] {
 
 const servidor = Bun.serve({
   port: CONFIG.puerto,
-  idleTimeout: 180,
+  idleTimeout: 255, // un turno puede esperar al límite por minuto del proveedor
   async fetch(req, srv) {
     const url = new URL(req.url)
     const ip = srv.requestIP(req)?.address ?? "desconocida"
